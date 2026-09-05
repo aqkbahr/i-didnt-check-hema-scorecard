@@ -1,5 +1,5 @@
 import React from 'react';
-import { Shield, HelpCircle, Calculator, BookOpen, ClipboardList, ExternalLink, Calendar } from 'lucide-react';
+import { Shield, HelpCircle, BookOpen, ExternalLink, Calendar } from 'lucide-react';
 import { HEMA_SCORECARD_EVENT_908 } from '../data/hemaScorecard2026Data';
 
 export default function Header({ 
@@ -14,9 +14,7 @@ export default function Header({
 }) {
   const tabs = [
     { id: 'qa', label: 'Q&A Search', icon: HelpCircle },
-    { id: 'simulator', label: 'Simulator', icon: Calculator },
-    { id: 'explorer', label: 'Official Rules', icon: BookOpen },
-    { id: 'cheatsheet', label: 'Referee Cheat Sheet', icon: ClipboardList }
+    { id: 'explorer', label: 'Official Rules', icon: BookOpen }
   ];
 
   const currentRulesetObj = HEMA_SCORECARD_EVENT_908.find(r => r.id === selectedRuleset);

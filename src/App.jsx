@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
 import RulesQA from './components/RulesQA';
-import ScenarioSimulator from './components/ScenarioSimulator';
 import RuleExplorer from './components/RuleExplorer';
-import RefereeCheatSheet from './components/RefereeCheatSheet';
 import { Shield } from 'lucide-react';
 
 export default function App() {
@@ -37,19 +35,11 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'simulator' && (
-          <ScenarioSimulator />
-        )}
-
         {activeTab === 'explorer' && (
           <RuleExplorer
             selectedRuleset={selectedRuleset}
             onSelectRuleset={setSelectedRuleset}
           />
-        )}
-
-        {activeTab === 'cheatsheet' && (
-          <RefereeCheatSheet selectedRuleset={selectedRuleset} />
         )}
       </main>
 
