@@ -1,9 +1,12 @@
 import { HEMA_SCORECARD_EVENT_908 } from '../data/hemaScorecard2026Data';
 
-/**
- * Intelligent Rules Engine for Atlantic Gathering (AG Open 2026) Event 908
- * Tightened search: finds exact relevant section passages and highlights matching text.
- */
+// Common English stop words to filter out natural language noise
+const STOP_WORDS = new Set([
+  'a', 'about', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'does',
+  'for', 'from', 'how', 'i', 'if', 'in', 'is', 'it', 'of', 'on', 'or', 'that',
+  'the', 'this', 'to', 'was', 'what', 'when', 'where', 'which', 'who', 'will',
+  'with', 'you', 'your', 'happens', 'happen', 'allowed', 'rules', 'rule'
+]);
 
 export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = 'all') {
   if (!query || query.trim() === '') {
@@ -12,15 +15,23 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
       requiresRulesetClarification: false,
       requiresTierClarification: false,
       clarificationPrompt: null,
-      topVerdict: null,
-      results: []
+      passages: []
     };
   }
 
   const qLower = query.toLowerCase().trim();
-  const words = qLower.split(/\s+/).filter(w => w.length > 2);
+  
+  // Extract key search terms by removing stop words
+  const words = qLower
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
 
-  // 1. Detect if query explicitly mentions a ruleset
+  if (words.length === 0) {
+    words.push(...qLower.split(/\s+/).filter(w => w.length > 2));
+  }
+
+  // 1. Check if Ruleset Clarification is required for multi-ruleset queries
   let detectedRuleset = null;
   if (qLower.includes('conduct') || qLower.includes('harass') || qLower.includes('safety policy')) {
     detectedRuleset = '695';
@@ -38,7 +49,6 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
 
   const activeRulesetId = selectedRulesetId !== 'all' ? selectedRulesetId : detectedRuleset;
 
-  // 2. Check if Ruleset Clarification is required when user query is multi-ruleset ambiguous
   const isMultiRulesetTopic = 
     (qLower.includes('team') || qLower.includes('point') || qLower.includes('score') || qLower.includes('flex') || qLower.includes('blade') || qLower.includes('tier')) &&
     selectedRulesetId === 'all' && 
@@ -61,59 +71,16 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
           { id: '696', label: 'General Sparring (r=696)', rulesetId: '696', permalink: 'https://hemascorecard.com/infoRules.php?e=908&r=696' }
         ]
       },
-      topVerdict: null,
-      results: []
+      passages: []
     };
   }
 
-  // 3. Check if Tier Clarification is required
-  const isRelayQuery = activeRulesetId === '698' || qLower.includes('relay');
-  const isCuttingQuery = activeRulesetId === '700' || qLower.includes('cutting');
-
-  if (selectedTier === 'all' && (isRelayQuery || isCuttingQuery)) {
-    if (isRelayQuery && (qLower.includes('team') || qLower.includes('aggregate') || qLower.includes('pickup') || qLower.includes('score') || qLower.includes('composition'))) {
-      return {
-        hasMatch: true,
-        requiresRulesetClarification: false,
-        requiresTierClarification: true,
-        clarificationPrompt: {
-          title: 'Longsword Relay: Clarify Team Tier',
-          message: 'Longsword Relay rules differ significantly between Tier-A and Tier-B. Please specify which Tier:',
-          options: [
-            { id: 'tier-a', label: 'Tier-A (School/Club Teams - Counts for Aggregate Award)', rulesetId: '698' },
-            { id: 'tier-b', label: 'Tier-B (Random Pickup & Intermediate Teams - Excluded from Aggregate)', rulesetId: '698' }
-          ]
-        },
-        topVerdict: null,
-        results: []
-      };
-    }
-
-    if (isCuttingQuery && (qLower.includes('pattern') || qLower.includes('cut') || qLower.includes('solo') || qLower.includes('dynamic'))) {
-      return {
-        hasMatch: true,
-        requiresRulesetClarification: false,
-        requiresTierClarification: true,
-        clarificationPrompt: {
-          title: 'Longsword Cutting: Clarify Cutting Tier',
-          message: 'Longsword Cutting uses different patterns for Tier-A and Tier-B. Please select the Tier:',
-          options: [
-            { id: 'tier-a', label: 'Tier-A (Dynamic Cutting Patterns - Feints & Moving Targets)', rulesetId: '700' },
-            { id: 'tier-b', label: 'Tier-B (Static Cutting Patterns - Solo Seeding Cuts)', rulesetId: '700' }
-          ]
-        },
-        topVerdict: null,
-        results: []
-      };
-    }
-  }
-
-  // 4. Passage-level search across target rulesets & general sparring cross-reference
+  // 2. Target ruleset selection
   let targetRulesets = activeRulesetId
     ? HEMA_SCORECARD_EVENT_908.filter(r => r.id === activeRulesetId)
     : HEMA_SCORECARD_EVENT_908;
 
-  // Cross-reference General Sparring (696) & Code of Conduct (695) if specific ruleset is selected
+  // Cross-reference General Sparring (696) & Code of Conduct (695) if specific match ruleset selected
   if (activeRulesetId && activeRulesetId !== '696' && activeRulesetId !== '695') {
     const generalRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '696');
     const conductRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '695');
@@ -125,32 +92,32 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
 
   targetRulesets.forEach(ruleset => {
     // Split full text into paragraphs
-    const paragraphs = ruleset.rawText.split(/\n\s*\n/).filter(p => p.trim().length > 20);
+    const paragraphs = ruleset.rawText.split(/\n\s*\n/).filter(p => p.trim().length > 15);
 
     paragraphs.forEach(para => {
       const pLower = para.toLowerCase();
-      let score = 0;
+      let matchScore = 0;
 
-      // Exact query match bonus
-      if (pLower.includes(qLower)) score += 30;
-
-      // Word matches
-      words.forEach(w => {
-        if (pLower.includes(w)) score += 5;
+      // Check keyword occurrences
+      words.forEach(word => {
+        if (pLower.includes(word)) {
+          matchScore += 10;
+        }
       });
 
-      // Prefer non-general ruleset if primary active ruleset matches
-      if (ruleset.id === activeRulesetId) score += 10;
+      // Bonus if primary selected ruleset matches
+      if (ruleset.id === activeRulesetId) {
+        matchScore += 5;
+      }
 
-      if (score > 4) {
+      if (matchScore >= 10) {
         matchingPassages.push({
           rulesetId: ruleset.id,
           rulesetName: ruleset.name,
           permalink: ruleset.permalink,
-          category: ruleset.category,
-          score,
-          passage: para.trim(),
-          highlightedPassage: highlightKeywords(para.trim(), words)
+          score: matchScore,
+          passageText: para.trim(),
+          highlightedText: highlightKeywords(para.trim(), words)
         });
       }
     });
@@ -158,50 +125,18 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
 
   matchingPassages.sort((a, b) => b.score - a.score);
 
-  // Synthesize top verdict
-  let topVerdict = null;
-  if (matchingPassages.length > 0) {
-    const top = matchingPassages[0];
-    topVerdict = {
-      verdict: `Relevant Passage in ${top.rulesetName} (r=${top.rulesetId})`,
-      question: query,
-      passage: top.passage,
-      highlightedPassage: top.highlightedPassage,
-      permalink: top.permalink,
-      rulesetId: top.rulesetId,
-      rulesetName: top.rulesetName,
-      tierApplied: selectedTier !== 'all' ? selectedTier.toUpperCase() : 'General'
-    };
-  } else {
-    topVerdict = {
-      verdict: 'General Tournament Discretion (r=696)',
-      question: query,
-      passage: 'No specific passage matched your query. Event organizers and Head Marshals retain final authority to interpret actions and safety protocols under General Tournament Rules (r=696).',
-      highlightedPassage: 'No specific passage matched your query. Event organizers and Head Marshals retain final authority to interpret actions and safety protocols under General Tournament Rules (r=696).',
-      permalink: 'https://hemascorecard.com/infoRules.php?e=908&r=696',
-      rulesetId: '696',
-      rulesetName: 'General Sparring Tournament Rules',
-      tierApplied: 'General'
-    };
-  }
-
   return {
     hasMatch: matchingPassages.length > 0,
     requiresRulesetClarification: false,
     requiresTierClarification: false,
-    topVerdict,
-    results: matchingPassages
+    passages: matchingPassages
   };
 }
 
-/**
- * Wraps matching query words in <mark class="highlight-rule"> tags
- */
 function highlightKeywords(text, words) {
   if (!words || words.length === 0) return text;
   let result = text;
   
-  // Sort words by length descending to match longer phrases first
   const sortedWords = [...words].sort((a, b) => b.length - a.length);
 
   sortedWords.forEach(w => {
