@@ -1,0 +1,18 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Production build outputs
+dist
+dist-ssr
+*.local
+
+# Logs & temp files
+*.log
+cookies.txt
+crop_image.ps1
+fetch_rules*
+
+# System & OS
+.DS_Store
+Thumbs.db
