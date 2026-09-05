@@ -103,7 +103,7 @@ const INTENT_DEFINITIONS = [
 export function parseRulebookPassages(ruleset) {
   const text = ruleset.rawText || '';
   const lines = text.split(/\r?\n/);
-  const passages = [];
+  const rawParagraphs = [];
 
   let currentHeading = ruleset.name;
   let currentParagraph = [];
@@ -115,11 +115,7 @@ export function parseRulebookPassages(ruleset) {
       if (currentParagraph.length > 0) {
         const fullPara = currentParagraph.join(' ').trim();
         if (fullPara.length > 15) {
-          passages.push({
-            id: `${ruleset.id}-${passages.length}`,
-            rulesetId: ruleset.id,
-            rulesetName: ruleset.name,
-            permalink: ruleset.permalink,
+          rawParagraphs.push({
             heading: currentHeading,
             text: fullPara
           });
@@ -149,15 +145,49 @@ export function parseRulebookPassages(ruleset) {
   if (currentParagraph.length > 0) {
     const fullPara = currentParagraph.join(' ').trim();
     if (fullPara.length > 15) {
+      rawParagraphs.push({
+        heading: currentHeading,
+        text: fullPara
+      });
+    }
+  }
+
+  // Group short paragraphs under the same heading to create larger contextual blocks (~350-750 characters)
+  const passages = [];
+  let bufferText = '';
+  let bufferHeading = '';
+
+  for (let i = 0; i < rawParagraphs.length; i++) {
+    const item = rawParagraphs[i];
+
+    if (!bufferHeading) {
+      bufferHeading = item.heading;
+      bufferText = item.text;
+    } else if (item.heading === bufferHeading && (bufferText.length < 350 || item.text.length < 150)) {
+      bufferText += '\n\n' + item.text;
+    } else {
       passages.push({
         id: `${ruleset.id}-${passages.length}`,
         rulesetId: ruleset.id,
         rulesetName: ruleset.name,
         permalink: ruleset.permalink,
-        heading: currentHeading,
-        text: fullPara
+        heading: bufferHeading,
+        text: bufferText
       });
+      bufferHeading = item.heading;
+      bufferText = item.text;
     }
+  }
+
+  if (bufferText) {
+    passages.push({
+      id: `${ruleset.id}-${passages.length}`,
+      rulesetId: ruleset.id,
+      rulesetName: ruleset.name,
+      permalink: ruleset.permalink,
+      heading: bufferHeading,
+      text: bufferText
+    });
   }
 
   return passages;

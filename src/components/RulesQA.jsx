@@ -113,25 +113,15 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
             searchResult.passages.slice(0, 5).map((item, idx) => (
               <div key={idx} className="glass-panel gold-border animate-fade-in" style={{ padding: '1.25rem' }}>
                 
-                {/* Header: Ruleset Name, Section Heading, Result Index & Official Permalink */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.55rem', borderBottom: '1px solid var(--border-muted)' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
-                      <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
-                        📜 Ruleset: {item.rulesetName} (r={item.rulesetId})
-                      </span>
-                      <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
-                        📍 Section: {item.heading}
-                      </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                        #{idx + 1} of {Math.min(searchResult.passages.length, 5)}
-                      </span>
-                    </div>
-                    {item.matchReason && (
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-gold)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                        <Tag size={12} /> {item.matchReason}
-                      </span>
-                    )}
+                {/* Header: Ruleset Name & Section Heading Context */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.55rem', borderBottom: '1px solid var(--border-muted)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
+                      📜 Ruleset: {item.rulesetName} (r={item.rulesetId})
+                    </span>
+                    <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
+                      📍 Section: {item.heading}
+                    </span>
                   </div>
                   
                   <a
