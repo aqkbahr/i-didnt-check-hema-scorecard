@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Header from './components/Header';
 import RulesQA from './components/RulesQA';
-import TargetZoneViewer from './components/TargetZoneViewer';
 import ScenarioSimulator from './components/ScenarioSimulator';
 import RuleExplorer from './components/RuleExplorer';
 import RefereeCheatSheet from './components/RefereeCheatSheet';
@@ -36,10 +35,6 @@ export default function App() {
             selectedTier={selectedTier}
             onSelectTier={setSelectedTier}
           />
-        )}
-
-        {activeTab === 'target-map' && (
-          <TargetZoneViewer selectedRuleset={selectedRuleset} />
         )}
 
         {activeTab === 'simulator' && (
