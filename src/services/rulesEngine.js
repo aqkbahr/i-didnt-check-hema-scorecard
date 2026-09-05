@@ -340,12 +340,18 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
  * Highlights domain terms and intent keywords with glowing mark tags
  */
 
+/**
+ * Google AI-style passage & keyword highlighter.
+ * Identifies the single most relevant sentence/passage within the full paragraph
+ * and wraps it in <mark class="ai-highlight-passage"> while preserving full paragraph context.
+ */
 export function highlightKeywords(text, domainTerms = [], matchedIntents = []) {
   if (!text) return '';
-  let result = text;
+
+  const sentenceRegex = /([^.!?]+[.!?]+|\s*[^.!?]+$)/g;
+  const sentences = text.match(sentenceRegex) || [text];
 
   const termsToHighlight = new Set([...domainTerms]);
-
   matchedIntents.forEach(intent => {
     intent.passageKeywords.forEach(kw => termsToHighlight.add(kw.toLowerCase()));
   });
@@ -354,14 +360,53 @@ export function highlightKeywords(text, domainTerms = [], matchedIntents = []) {
     .filter(t => t.length >= 3 && !DOMAIN_STOPWORDS.has(t))
     .sort((a, b) => b.length - a.length);
 
-  sortedTerms.forEach(w => {
-    // Escape special regex chars
-    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escaped})`, 'gi');
-    result = result.replace(regex, '___MARK_START___$1___MARK_END___');
+  // Score each sentence within the paragraph to find the most relevant passage
+  let bestSentenceIdx = -1;
+  let bestSentenceScore = 0;
+
+  sentences.forEach((sentence, idx) => {
+    const sLower = sentence.toLowerCase();
+    let sScore = 0;
+
+    sortedTerms.forEach(term => {
+      if (sLower.includes(term)) sScore += 10;
+    });
+
+    matchedIntents.forEach(intent => {
+      intent.passageKeywords.forEach(kw => {
+        if (sLower.includes(kw.toLowerCase())) sScore += 25;
+      });
+    });
+
+    if (sScore > bestSentenceScore) {
+      bestSentenceScore = sScore;
+      bestSentenceIdx = idx;
+    }
   });
 
+  // Reconstruct paragraph, marking the top passage and keyword matches
+  const processedSentences = sentences.map((sentence, idx) => {
+    let sentenceText = sentence;
+
+    // Replace matching terms with temporary tokens
+    sortedTerms.forEach(w => {
+      const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escaped})`, 'gi');
+      sentenceText = sentenceText.replace(regex, '___MARK_START___$1___MARK_END___');
+    });
+
+    // Wrap the single most relevant sentence if score > 0
+    if (idx === bestSentenceIdx && bestSentenceScore > 0) {
+      return `___AI_PASSAGE_START___${sentenceText}___AI_PASSAGE_END___`;
+    }
+    return sentenceText;
+  });
+
+  let result = processedSentences.join('');
+
   result = result
+    .replace(/___AI_PASSAGE_START___/g, '<mark class="ai-highlight-passage">')
+    .replace(/___AI_PASSAGE_END___/g, '</mark>')
     .replace(/___MARK_START___/g, '<mark class="highlight-rule">')
     .replace(/___MARK_END___/g, '</mark>');
 

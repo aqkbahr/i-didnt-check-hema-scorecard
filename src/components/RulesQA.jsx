@@ -110,18 +110,21 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
       {searchResult && !searchResult.requiresRulesetClarification && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {searchResult.passages.length > 0 ? (
-            searchResult.passages.map((item, idx) => (
+            searchResult.passages.slice(0, 5).map((item, idx) => (
               <div key={idx} className="glass-panel gold-border animate-fade-in" style={{ padding: '1.25rem' }}>
                 
-                {/* Header: Ruleset Name, Section Heading & Official Permalink */}
+                {/* Header: Ruleset Name, Section Heading, Result Index & Official Permalink */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.55rem', borderBottom: '1px solid var(--border-muted)' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
                       <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
-                        {item.rulesetName} (r={item.rulesetId})
+                        📜 Ruleset: {item.rulesetName} (r={item.rulesetId})
                       </span>
                       <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
-                        Section: {item.heading}
+                        📍 Section: {item.heading}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: '600' }}>
+                        #{idx + 1} of {Math.min(searchResult.passages.length, 5)}
                       </span>
                     </div>
                     {item.matchReason && (
@@ -142,7 +145,7 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
                   </a>
                 </div>
 
-                {/* Body: Exact Rules Text Passage with Highlights */}
+                {/* Body: Full Paragraph with Sentence-Level Google AI Highlight */}
                 <div style={{ background: '#0e1626', padding: '1.1rem', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid var(--accent-gold)' }}>
                   <div
                     style={{ fontSize: '0.925rem', color: '#e2e8f0', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}

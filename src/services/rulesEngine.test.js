@@ -98,4 +98,22 @@ describe('HEMA Rules Q&A Search Relevance Engine', () => {
     expect(result.hasMatch).toBe(false);
     expect(result.passages.length).toBe(0);
   });
+
+  it('limits top results to maximum 5 and includes both ruleset name and section heading context', () => {
+    const result = queryAGORules('target hit points scoring', 'all', 'all');
+    expect(result.passages.length).toBeLessThanOrEqual(5);
+    
+    result.passages.forEach(passage => {
+      expect(passage.rulesetName).toBeDefined();
+      expect(passage.rulesetName.length).toBeGreaterThan(0);
+      expect(passage.heading).toBeDefined();
+      expect(passage.heading.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('highlights the most relevant sentence with AI passage mark tag inside paragraph', () => {
+    const result = queryAGORules('Can I pommel strike the mask?', 'all', 'all');
+    const topPassage = result.passages[0];
+    expect(topPassage.highlightedText).toContain('ai-highlight-passage');
+  });
 });
