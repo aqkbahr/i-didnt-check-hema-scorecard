@@ -2,7 +2,7 @@ import { HEMA_SCORECARD_EVENT_908 } from '../data/hemaScorecard2026Data';
 
 /**
  * Intelligent Rules Engine for Atlantic Gathering (AG Open 2026) Event 908
- * Supports automatic ruleset ambiguity detection, Tier-A vs Tier-B clarification, and official permalink citations.
+ * Tightened search: finds exact relevant section passages and highlights matching text.
  */
 
 export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = 'all') {
@@ -51,7 +51,7 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
       requiresTierClarification: false,
       clarificationPrompt: {
         title: 'Which tournament ruleset are you inquiring about?',
-        message: 'Your question touches on rules that differ between tournament divisions at AG Open 2026. Please select the relevant ruleset to receive the exact ruling:',
+        message: 'Your question touches on rules that differ between tournament divisions. Please select the relevant match ruleset:',
         options: [
           { id: '697', label: 'Individual Longsword (r=697)', rulesetId: '697', permalink: 'https://hemascorecard.com/infoRules.php?e=908&r=697' },
           { id: '698', label: 'Longsword Relay (r=698)', rulesetId: '698', permalink: 'https://hemascorecard.com/infoRules.php?e=908&r=698' },
@@ -66,7 +66,7 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
     };
   }
 
-  // 3. Check if Tier Clarification is required (e.g. Longsword Relay Tier A vs Tier B, Cutting Tier A vs Tier B)
+  // 3. Check if Tier Clarification is required
   const isRelayQuery = activeRulesetId === '698' || qLower.includes('relay');
   const isCuttingQuery = activeRulesetId === '700' || qLower.includes('cutting');
 
@@ -78,7 +78,7 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
         requiresTierClarification: true,
         clarificationPrompt: {
           title: 'Longsword Relay: Clarify Team Tier',
-          message: 'Longsword Relay rules differ significantly between Tier-A and Tier-B. Please specify which Tier you are asking about:',
+          message: 'Longsword Relay rules differ significantly between Tier-A and Tier-B. Please specify which Tier:',
           options: [
             { id: 'tier-a', label: 'Tier-A (School/Club Teams - Counts for Aggregate Award)', rulesetId: '698' },
             { id: 'tier-b', label: 'Tier-B (Random Pickup & Intermediate Teams - Excluded from Aggregate)', rulesetId: '698' }
@@ -96,7 +96,7 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
         requiresTierClarification: true,
         clarificationPrompt: {
           title: 'Longsword Cutting: Clarify Cutting Tier',
-          message: 'AG Open Longsword Cutting uses different patterns for Tier-A and Tier-B. Please select the Tier:',
+          message: 'Longsword Cutting uses different patterns for Tier-A and Tier-B. Please select the Tier:',
           options: [
             { id: 'tier-a', label: 'Tier-A (Dynamic Cutting Patterns - Feints & Moving Targets)', rulesetId: '700' },
             { id: 'tier-b', label: 'Tier-B (Static Cutting Patterns - Solo Seeding Cuts)', rulesetId: '700' }
@@ -108,81 +108,113 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
     }
   }
 
-  // 4. Query matching against rulesets
-  const targetRulesets = activeRulesetId
+  // 4. Passage-level search across target rulesets & general sparring cross-reference
+  let targetRulesets = activeRulesetId
     ? HEMA_SCORECARD_EVENT_908.filter(r => r.id === activeRulesetId)
     : HEMA_SCORECARD_EVENT_908;
 
-  const matches = [];
+  // Cross-reference General Sparring (696) & Code of Conduct (695) if specific ruleset is selected
+  if (activeRulesetId && activeRulesetId !== '696' && activeRulesetId !== '695') {
+    const generalRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '696');
+    const conductRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '695');
+    if (generalRules && !targetRulesets.some(r => r.id === '696')) targetRulesets.push(generalRules);
+    if (conductRules && !targetRulesets.some(r => r.id === '695')) targetRulesets.push(conductRules);
+  }
+
+  const matchingPassages = [];
 
   targetRulesets.forEach(ruleset => {
-    const textLower = ruleset.rawText.toLowerCase();
-    let score = 0;
+    // Split full text into paragraphs
+    const paragraphs = ruleset.rawText.split(/\n\s*\n/).filter(p => p.trim().length > 20);
 
-    if (textLower.includes(qLower)) score += 15;
+    paragraphs.forEach(para => {
+      const pLower = para.toLowerCase();
+      let score = 0;
 
-    words.forEach(w => {
-      if (textLower.includes(w)) score += 3;
-    });
+      // Exact query match bonus
+      if (pLower.includes(qLower)) score += 30;
 
-    if (score > 2) {
-      matches.push({
-        rulesetId: ruleset.id,
-        rulesetName: ruleset.name,
-        permalink: ruleset.permalink,
-        category: ruleset.category,
-        score,
-        summary: ruleset.summary,
-        snippet: getRelevantSnippet(ruleset.rawText, words[0] || qLower)
+      // Word matches
+      words.forEach(w => {
+        if (pLower.includes(w)) score += 5;
       });
-    }
+
+      // Prefer non-general ruleset if primary active ruleset matches
+      if (ruleset.id === activeRulesetId) score += 10;
+
+      if (score > 4) {
+        matchingPassages.push({
+          rulesetId: ruleset.id,
+          rulesetName: ruleset.name,
+          permalink: ruleset.permalink,
+          category: ruleset.category,
+          score,
+          passage: para.trim(),
+          highlightedPassage: highlightKeywords(para.trim(), words)
+        });
+      }
+    });
   });
 
-  matches.sort((a, b) => b.score - a.score);
+  matchingPassages.sort((a, b) => b.score - a.score);
 
   // Synthesize top verdict
   let topVerdict = null;
-  if (matches.length > 0) {
-    const top = matches[0];
+  if (matchingPassages.length > 0) {
+    const top = matchingPassages[0];
     topVerdict = {
-      verdict: `Official Rule in ${top.rulesetName}`,
+      verdict: `Relevant Passage in ${top.rulesetName} (r=${top.rulesetId})`,
       question: query,
-      summary: top.summary,
-      snippet: top.snippet,
+      passage: top.passage,
+      highlightedPassage: top.highlightedPassage,
       permalink: top.permalink,
       rulesetId: top.rulesetId,
+      rulesetName: top.rulesetName,
       tierApplied: selectedTier !== 'all' ? selectedTier.toUpperCase() : 'General'
     };
   } else {
     topVerdict = {
       verdict: 'General Tournament Discretion (r=696)',
       question: query,
-      summary: 'No specific clause found. Consult Head Ring Marshal.',
-      snippet: 'Event organizers and Head Marshals retain final authority to interpret actions and safety protocols.',
+      passage: 'No specific passage matched your query. Event organizers and Head Marshals retain final authority to interpret actions and safety protocols under General Tournament Rules (r=696).',
+      highlightedPassage: 'No specific passage matched your query. Event organizers and Head Marshals retain final authority to interpret actions and safety protocols under General Tournament Rules (r=696).',
       permalink: 'https://hemascorecard.com/infoRules.php?e=908&r=696',
       rulesetId: '696',
+      rulesetName: 'General Sparring Tournament Rules',
       tierApplied: 'General'
     };
   }
 
   return {
-    hasMatch: matches.length > 0,
+    hasMatch: matchingPassages.length > 0,
     requiresRulesetClarification: false,
     requiresTierClarification: false,
     topVerdict,
-    results: matches
+    results: matchingPassages
   };
 }
 
-function getRelevantSnippet(fullText, keyword) {
-  if (!fullText) return '';
-  const lower = fullText.toLowerCase();
-  const idx = lower.indexOf(keyword.toLowerCase());
-  if (idx === -1) return fullText.substring(0, 300) + '...';
+/**
+ * Wraps matching query words in <mark class="highlight-rule"> tags
+ */
+function highlightKeywords(text, words) {
+  if (!words || words.length === 0) return text;
+  let result = text;
   
-  const start = Math.max(0, idx - 100);
-  const end = Math.min(fullText.length, idx + 300);
-  return (start > 0 ? '...' : '') + fullText.substring(start, end) + (end < fullText.length ? '...' : '');
+  // Sort words by length descending to match longer phrases first
+  const sortedWords = [...words].sort((a, b) => b.length - a.length);
+
+  sortedWords.forEach(w => {
+    if (w.length < 3) return;
+    const regex = new RegExp(`(${w})`, 'gi');
+    result = result.replace(regex, '___MARK_START___$1___MARK_END___');
+  });
+
+  result = result
+    .replace(/___MARK_START___/g, '<mark class="highlight-rule">')
+    .replace(/___MARK_END___/g, '</mark>');
+
+  return result;
 }
 
 /**

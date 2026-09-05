@@ -13,7 +13,7 @@ export default function Header({
   onTabChange 
 }) {
   const tabs = [
-    { id: 'qa', label: 'Q&A Clarifications', icon: HelpCircle },
+    { id: 'qa', label: 'Q&A Search', icon: HelpCircle },
     { id: 'target-map', label: 'Target Map', icon: Target },
     { id: 'simulator', label: 'Simulator', icon: Calculator },
     { id: 'explorer', label: 'Official Rules', icon: BookOpen },
@@ -23,13 +23,13 @@ export default function Header({
   const currentRulesetObj = HEMA_SCORECARD_EVENT_908.find(r => r.id === selectedRuleset);
 
   return (
-    <header style={{ marginBottom: '1.5rem' }}>
+    <header style={{ marginBottom: '1.25rem' }}>
       
-      {/* Base Image Banner Header */}
-      <div className="glass-panel gold-border" style={{ overflow: 'hidden', padding: 0, marginBottom: '1rem', position: 'relative' }}>
+      {/* Compact Banner Header with Cropped Base Image */}
+      <div className="glass-panel gold-border" style={{ overflow: 'hidden', padding: 0, marginBottom: '0.75rem', position: 'relative' }}>
         
-        {/* Header Image Background Overlay */}
-        <div style={{ position: 'relative', width: '100%', height: '190px', background: '#000' }}>
+        {/* Header Image Overlay - Compact height */}
+        <div style={{ position: 'relative', width: '100%', height: '100px', background: '#000' }}>
           <img
             src="/man_in_chair_header.jpg"
             alt="I didn't Check HEMA Scorecard"
@@ -37,66 +37,56 @@ export default function Header({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 35%',
-              opacity: '0.68',
-              filter: 'brightness(0.9) contrast(1.1)'
+              objectPosition: 'center 40%',
+              opacity: '0.65',
+              filter: 'brightness(0.85) contrast(1.1)'
             }}
           />
 
-          {/* Dark Gradient Overlay for text readability */}
+          {/* Dark Gradient */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(to right, rgba(9, 13, 22, 0.95) 0%, rgba(9, 13, 22, 0.6) 50%, rgba(9, 13, 22, 0.85) 100%), linear-gradient(to top, rgba(9, 13, 22, 1) 0%, transparent 60%)'
+            background: 'linear-gradient(to right, rgba(9, 13, 22, 0.95) 0%, rgba(9, 13, 22, 0.65) 50%, rgba(9, 13, 22, 0.9) 100%)'
           }} />
 
-          {/* Banner Title Content */}
+          {/* Title - Compact without super/sub headers */}
           <div style={{
             position: 'absolute',
             inset: 0,
-            padding: '1.25rem 1.5rem',
+            padding: '0.75rem 1.25rem',
             display: 'flex',
-            flexDirection: 'column',
-            justify: 'center'
+            alignItems: 'center'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
-              <span className="badge badge-gold">Official Rules Assistant</span>
-              <span className="badge badge-blue">HEMAScorecard Event 908</span>
-            </div>
-
             <h1 style={{
-              fontSize: 'clamp(1.5rem, 4vw, 2.2rem)',
+              fontSize: 'clamp(1.3rem, 3.5vw, 1.8rem)',
               fontWeight: '900',
               color: '#fff',
               margin: 0,
-              textShadow: '0 2px 10px rgba(0,0,0,0.8)',
+              textShadow: '0 2px 10px rgba(0,0,0,0.9)',
               letterSpacing: '0.01em'
             }}>
               I didn't Check <span style={{ color: 'var(--text-gold)' }}>HEMA Scorecard</span>
             </h1>
-
-            <p style={{ fontSize: '0.875rem', color: '#cbd5e1', marginTop: '0.2rem', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
-              Instant tournament rules clarification & referee engine
-            </p>
           </div>
         </div>
 
-        {/* Minimal Controls Bar: Event Dropdown & Ruleset Dropdown */}
+        {/* Controls Bar: Event Dropdown & Ruleset Dropdown */}
         <div style={{
           background: '#0e1626',
-          padding: '0.85rem 1.25rem',
+          padding: '0.65rem 1rem',
           borderTop: '1px solid var(--border-muted)',
           display: 'flex',
           justify: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
-          gap: '0.85rem'
+          gap: '0.6rem'
         }}>
           
-          {/* Left: Event Selection */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Calendar size={16} /> Event:
+          {/* Event Selection */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <label style={{ fontSize: '0.825rem', color: 'var(--text-gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Calendar size={15} /> Event:
             </label>
             <select
               value={selectedEvent}
@@ -105,9 +95,9 @@ export default function Header({
                 background: '#1f2937',
                 color: '#fff',
                 border: '1px solid var(--border-gold)',
-                borderRadius: '8px',
-                padding: '0.4rem 0.85rem',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '0.35rem 0.65rem',
+                fontSize: '0.825rem',
                 fontWeight: '700',
                 outline: 'none',
                 cursor: 'pointer'
@@ -117,10 +107,10 @@ export default function Header({
             </select>
           </div>
 
-          {/* Right: Active Match Ruleset Selection */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-steel)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Shield size={16} color="var(--accent-gold)" /> Match Ruleset:
+          {/* Match Ruleset Selection */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <label style={{ fontSize: '0.825rem', color: 'var(--text-steel)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              <Shield size={15} color="var(--accent-gold)" /> Match Ruleset:
             </label>
             <select
               value={selectedRuleset}
@@ -129,9 +119,9 @@ export default function Header({
                 background: '#1f2937',
                 color: '#fff',
                 border: '1px solid var(--border-gold)',
-                borderRadius: '8px',
-                padding: '0.4rem 0.85rem',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '0.35rem 0.65rem',
+                fontSize: '0.825rem',
                 fontWeight: '700',
                 outline: 'none',
                 cursor: 'pointer'
@@ -151,9 +141,9 @@ export default function Header({
                 target="_blank"
                 rel="noreferrer"
                 className="btn btn-outline"
-                style={{ padding: '0.35rem 0.65rem', fontSize: '0.775rem', gap: '0.3rem' }}
+                style={{ padding: '0.3rem 0.55rem', fontSize: '0.75rem', gap: '0.25rem' }}
               >
-                <ExternalLink size={13} /> Link
+                <ExternalLink size={12} /> Link
               </a>
             )}
           </div>
@@ -173,7 +163,7 @@ export default function Header({
               onClick={() => onTabChange(tab.id)}
               className={`nav-tab ${isActive ? 'active' : ''}`}
             >
-              <Icon size={17} color={isActive ? 'var(--text-gold)' : 'var(--text-muted)'} />
+              <Icon size={16} color={isActive ? 'var(--text-gold)' : 'var(--text-muted)'} />
               <span>{tab.label}</span>
             </button>
           );
