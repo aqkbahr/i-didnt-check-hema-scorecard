@@ -43,25 +43,24 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
+      {/* Footer Disclaimer */}
       <footer style={{
         marginTop: '3rem',
         paddingTop: '1.5rem',
         borderTop: '1px solid var(--border-muted)',
         display: 'flex',
-        justify: 'space-between',
+        justify: 'center',
         alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '1rem',
+        textAlign: 'center',
         color: 'var(--text-muted)',
-        fontSize: '0.85rem'
+        fontSize: '0.85rem',
+        lineHeight: '1.6'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
           <Shield size={16} color="var(--accent-gold)" />
-          <span>I didn't Check HEMA Scorecard • {selectedEvent} (Event 908)</span>
-        </div>
-        <div>
-          Rules Assistant & Multi-Ruleset Cross-Reference Engine
+          <span>
+            This tool uses the most energy and water efficient AI tool I could find so it can make mistakes. When in doubt, check the rules on HEMA Scorecard.
+          </span>
         </div>
       </footer>
     </div>
