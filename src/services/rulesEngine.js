@@ -1,13 +1,171 @@
-import { HEMA_SCORECARD_EVENT_908 } from '../data/hemaScorecard2026Data';
+import { HEMA_SCORECARD_EVENT_908 } from '../data/hemaScorecard2026Data.js';
 
-// Common English stop words to filter out natural language noise
-const STOP_WORDS = new Set([
+/**
+ * Domain-specific noise words that should not trigger high relevance matches on their own.
+ */
+const DOMAIN_STOPWORDS = new Set([
   'a', 'about', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'can', 'do', 'does',
   'for', 'from', 'how', 'i', 'if', 'in', 'is', 'it', 'of', 'on', 'or', 'that',
   'the', 'this', 'to', 'was', 'what', 'when', 'where', 'which', 'who', 'will',
-  'with', 'you', 'your', 'happens', 'happen', 'allowed', 'rules', 'rule'
+  'with', 'you', 'your', 'happens', 'happen', 'allowed', 'rules', 'rule', 'ruleset',
+  'sword', 'swords', 'hit', 'hits', 'hitting', 'struck', 'strike', 'strikes', 'striking',
+  'point', 'points', 'fighter', 'fighters', 'fencer', 'fencers', 'match', 'matches',
+  'tournament', 'tournaments', 'action', 'actions', 'use', 'using', 'used', 'get',
+  'gets', 'result', 'results', 'competition', 'competitor', 'competitors', 'occur',
+  'occurs', 'permitted', 'valid', 'invalid', 'example', 'examples', 'did', 'done',
+  'should', 'would', 'could', 'after', 'before', 'during', 'someone', 'somebody',
+  'other', 'another', 'each', 'they', 'them', 'their'
 ]);
 
+/**
+ * Intent Patterns & Synonym Mappings for HEMA Queries
+ */
+const INTENT_DEFINITIONS = [
+  {
+    id: 'pommel_strike',
+    name: 'Pommel & Hilt Strikes',
+    matchReason: 'Matched: Pommel Strikes & Hilt Contact Rules',
+    patterns: [
+      /\bpommel\b/i, /\bhilt strike\b/i, /\bpommeling\b/i,
+      /\bpommel strike\b/i, /\bpommel to face\b/i, /\bhit mask with pommel\b/i
+    ],
+    passageKeywords: ['pommel', 'pommels', 'pommel strike', 'pommel strikes', 'pommel strikes are only valid']
+  },
+  {
+    id: 'turn_back_spine',
+    name: 'Exposing Back / Spine Safety',
+    matchReason: 'Matched: Exposing Spine & Back of Head Safety Rules',
+    patterns: [
+      /turn.*back/i, /back.*turned/i, /turning.*back/i, /\bspine\b/i,
+      /\bback of the head\b/i, /\bback of head\b/i, /expose.*back/i,
+      /exposed.*back/i, /unsafe target/i, /turning away/i
+    ],
+    passageKeywords: ['spine', 'back of the head', 'exposing', 'turned', 'turning']
+  },
+  {
+    id: 'afterblow',
+    name: 'Afterblow & Timing Rules',
+    matchReason: 'Matched: Afterblow Definition & Scoring Deductions',
+    patterns: [
+      /\bafterblow\b/i, /\bafter blow\b/i, /\bafter-blow\b/i, /\brevenge hit\b/i,
+      /hit.*after/i, /they hit.*after/i, /hit arm after/i, /after stroke/i
+    ],
+    passageKeywords: ['afterblow', 'after blow', 'deduct', 'tempo']
+  },
+  {
+    id: 'double_hit',
+    name: 'Double Hits & Simultaneous Strikes',
+    matchReason: 'Matched: Double Hits & Simultaneous Action Rules',
+    patterns: [
+      /\bdouble\b/i, /\bdouble hit\b/i, /\bdouble hits\b/i, /\bboth hit\b/i,
+      /\bsimultaneous\b/i, /\bboth struck\b/i, /both hit each other/i, /hit each other/i
+    ],
+    passageKeywords: ['double hit', 'double hits', 'simultaneous', 'both fighters land']
+  },
+  {
+    id: 'ring_out',
+    name: 'Ring Outs & Boundaries',
+    matchReason: 'Matched: Ring Outs & Boundary Violation Rules',
+    patterns: [
+      /\bring out\b/i, /\bring-out\b/i, /\bring outs\b/i, /\bstep out\b/i,
+      /\bstepped out\b/i, /\bout of bounds\b/i, /\bboundary\b/i, /\bfleeing\b/i,
+      /step out after/i, /ring out penalty/i
+    ],
+    passageKeywords: ['ring out', 'ring outs', 'out of bounds', 'boundary', 'feet']
+  },
+  {
+    id: 'equipment_target',
+    name: 'Equipment & Target Areas',
+    matchReason: 'Matched: Target Area Definitions & Mandatory Equipment',
+    patterns: [
+      /\bgloves\b/i, /\bglove\b/i, /\bgear\b/i, /\bequipment\b/i, /\blacrosse\b/i,
+      /\bspes\b/i, /\bprogauntlet\b/i, /gloves count/i, /hand target/i, /\bgorget\b/i,
+      /\bjacket\b/i, /\bmask\b/i, /\bknee\b/i, /\belbow\b/i, /\btarget area\b/i
+    ],
+    passageKeywords: ['equipment', 'gloves', 'target area', 'hand strikes', 'lacrosse']
+  },
+  {
+    id: 'grappling_takedown',
+    name: 'Takedowns & Grappling',
+    matchReason: 'Matched: Takedowns, Wrestling & Grappling Rules',
+    patterns: [
+      /\bthrow\b/i, /\bthrows\b/i, /\btakedown\b/i, /\btakedowns\b/i, /\bwrestle\b/i,
+      /\bwrestling\b/i, /\bgrapple\b/i, /\bgrappling\b/i, /\bclinch\b/i, /\bdisarm\b/i
+    ],
+    passageKeywords: ['takedown', 'takedowns', 'throws', 'wrestling', 'grapple', 'disarm']
+  }
+];
+
+/**
+ * Parses raw rules text into structured passages with section headings.
+ */
+
+export function parseRulebookPassages(ruleset) {
+  const text = ruleset.rawText || '';
+  const lines = text.split(/\r?\n/);
+  const passages = [];
+
+  let currentHeading = ruleset.name;
+  let currentParagraph = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (!line) {
+      if (currentParagraph.length > 0) {
+        const fullPara = currentParagraph.join(' ').trim();
+        if (fullPara.length > 15) {
+          passages.push({
+            id: `${ruleset.id}-${passages.length}`,
+            rulesetId: ruleset.id,
+            rulesetName: ruleset.name,
+            permalink: ruleset.permalink,
+            heading: currentHeading,
+            text: fullPara
+          });
+        }
+        currentParagraph = [];
+      }
+      continue;
+    }
+
+    // Detect section heading heuristics
+    const isShortLine = line.length < 40;
+    const isTitleLike = /^[A-Z0-9\s\-:–\(\)]{3,45}$/.test(line) ||
+      ['Forbidden Actions', 'Ring Outs', 'Match Conduct', 'Scoring Actions', 'Equipment',
+       'Pommel Strikes', 'Targets', 'Double Hits', 'Afterblow Definition', 'Pulling of Attacks',
+       'Illegal Actions', 'Wrestling and Takedowns', 'Team Composition', 'Match End',
+       'Self Calls', 'Penalties', 'Quality Standards', 'Cuts', 'Thrusts', 'Slices',
+       'Target Area Definitions', 'Blade Grabs & Disarms', 'Target Substitution',
+       'Static (Tier B) Cutting Patterns', 'Dynamic (Tier-A) Cutting Patterns'].some(h => line.toLowerCase().includes(h.toLowerCase()));
+
+    if (isTitleLike && isShortLine && currentParagraph.length === 0) {
+      currentHeading = line;
+    } else {
+      currentParagraph.push(line);
+    }
+  }
+
+  if (currentParagraph.length > 0) {
+    const fullPara = currentParagraph.join(' ').trim();
+    if (fullPara.length > 15) {
+      passages.push({
+        id: `${ruleset.id}-${passages.length}`,
+        rulesetId: ruleset.id,
+        rulesetName: ruleset.name,
+        permalink: ruleset.permalink,
+        heading: currentHeading,
+        text: fullPara
+      });
+    }
+  }
+
+  return passages;
+}
+
+/**
+ * Intelligent Context-Aware Query Engine
+ */
 export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = 'all') {
   if (!query || query.trim() === '') {
     return {
@@ -20,18 +178,19 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
   }
 
   const qLower = query.toLowerCase().trim();
-  
-  // Extract key search terms by removing stop words
-  const words = qLower
+
+  // Extract non-stopword domain terms
+  const domainTerms = qLower
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+    .filter(w => w.length > 2 && !DOMAIN_STOPWORDS.has(w));
 
-  if (words.length === 0) {
-    words.push(...qLower.split(/\s+/).filter(w => w.length > 2));
-  }
+  // 1. Detect Intent
+  const matchedIntents = INTENT_DEFINITIONS.filter(intent =>
+    intent.patterns.some(pattern => pattern.test(query))
+  );
 
-  // 1. Check if Ruleset Clarification is required for multi-ruleset queries
+  // 2. Check if Ruleset Clarification is required for multi-ruleset queries
   let detectedRuleset = null;
   if (qLower.includes('conduct') || qLower.includes('harass') || qLower.includes('safety policy')) {
     detectedRuleset = '695';
@@ -49,9 +208,9 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
 
   const activeRulesetId = selectedRulesetId !== 'all' ? selectedRulesetId : detectedRuleset;
 
-  const isMultiRulesetTopic = 
+  const isMultiRulesetTopic =
     (qLower.includes('team') || qLower.includes('point') || qLower.includes('score') || qLower.includes('flex') || qLower.includes('blade') || qLower.includes('tier')) &&
-    selectedRulesetId === 'all' && 
+    selectedRulesetId === 'all' &&
     !detectedRuleset;
 
   if (isMultiRulesetTopic) {
@@ -75,73 +234,130 @@ export function queryAGORules(query, selectedRulesetId = 'all', selectedTier = '
     };
   }
 
-  // 2. Target ruleset selection
+  // 3. Gather rulesets to search
   let targetRulesets = activeRulesetId
     ? HEMA_SCORECARD_EVENT_908.filter(r => r.id === activeRulesetId)
     : HEMA_SCORECARD_EVENT_908;
 
-  // Cross-reference General Sparring (696) & Code of Conduct (695) if specific match ruleset selected
+  // Include General Sparring (696) as secondary context if specific ruleset is selected
   if (activeRulesetId && activeRulesetId !== '696' && activeRulesetId !== '695') {
     const generalRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '696');
-    const conductRules = HEMA_SCORECARD_EVENT_908.find(r => r.id === '695');
-    if (generalRules && !targetRulesets.some(r => r.id === '696')) targetRulesets.push(generalRules);
-    if (conductRules && !targetRulesets.some(r => r.id === '695')) targetRulesets.push(conductRules);
+    if (generalRules && !targetRulesets.some(r => r.id === '696')) {
+      targetRulesets.push(generalRules);
+    }
   }
 
-  const matchingPassages = [];
+  // Parse all candidate passages
+  const allPassages = [];
+  targetRulesets.forEach(rs => {
+    const parsed = parseRulebookPassages(rs);
+    allPassages.push(...parsed);
+  });
 
-  targetRulesets.forEach(ruleset => {
-    // Split full text into paragraphs
-    const paragraphs = ruleset.rawText.split(/\n\s*\n/).filter(p => p.trim().length > 15);
+  // 4. Multi-factor Passage Scoring Engine
+  const scoredPassages = [];
 
-    paragraphs.forEach(para => {
-      const pLower = para.toLowerCase();
-      let matchScore = 0;
+  allPassages.forEach(pass => {
+    const pLower = pass.text.toLowerCase();
+    const hLower = pass.heading.toLowerCase();
+    let score = 0;
+    let primaryReason = pass.heading;
 
-      // Check keyword occurrences
-      words.forEach(word => {
-        if (pLower.includes(word)) {
-          matchScore += 10;
+    // A. Intent Scoring (+60 to +100)
+    matchedIntents.forEach(intent => {
+      let isIntentMatched = false;
+
+      // Check if passage contains intent keywords
+      intent.passageKeywords.forEach(kw => {
+        if (pLower.includes(kw.toLowerCase()) || hLower.includes(kw.toLowerCase())) {
+          isIntentMatched = true;
         }
       });
 
-      // Bonus if primary selected ruleset matches
-      if (ruleset.id === activeRulesetId) {
-        matchScore += 5;
-      }
-
-      if (matchScore >= 10) {
-        matchingPassages.push({
-          rulesetId: ruleset.id,
-          rulesetName: ruleset.name,
-          permalink: ruleset.permalink,
-          score: matchScore,
-          passageText: para.trim(),
-          highlightedText: highlightKeywords(para.trim(), words)
-        });
+      if (isIntentMatched) {
+        score += 70;
+        primaryReason = intent.matchReason;
       }
     });
+
+    // B. Exact Phrase Match in passage text or heading (+40 to +60)
+    if (domainTerms.length >= 2) {
+      const phrase = domainTerms.join(' ');
+      if (pLower.includes(phrase)) score += 60;
+      if (hLower.includes(phrase)) score += 40;
+    }
+
+    // C. Non-stopword Domain Term Matches (+15 per term)
+    let matchedTermsCount = 0;
+    domainTerms.forEach(term => {
+      if (pLower.includes(term)) {
+        score += 15;
+        matchedTermsCount++;
+      }
+      if (hLower.includes(term)) {
+        score += 25;
+        matchedTermsCount++;
+      }
+    });
+
+    // D. Proximity / Co-occurrence Boost (+20 if 2+ domain terms present)
+    if (matchedTermsCount >= 2) {
+      score += 25;
+    }
+
+    // E. Selected Ruleset Boost (+10 for primary selected ruleset)
+    if (activeRulesetId && pass.rulesetId === activeRulesetId) {
+      score += 10;
+    }
+
+    // F. Minimum Relevance Threshold (Minimum Score = 25)
+    if (score >= 25) {
+      scoredPassages.push({
+        ...pass,
+        passageText: pass.text,
+        score,
+        matchReason: primaryReason,
+        highlightedText: highlightKeywords(pass.text, domainTerms, matchedIntents)
+      });
+    }
   });
 
-  matchingPassages.sort((a, b) => b.score - a.score);
+  // Sort by score descending
+  scoredPassages.sort((a, b) => b.score - a.score);
+
+  // Return top 3-5 results above threshold
+  const topPassages = scoredPassages.slice(0, 5);
 
   return {
-    hasMatch: matchingPassages.length > 0,
+    hasMatch: topPassages.length > 0,
     requiresRulesetClarification: false,
     requiresTierClarification: false,
-    passages: matchingPassages
+    passages: topPassages
   };
 }
 
-function highlightKeywords(text, words) {
-  if (!words || words.length === 0) return text;
-  let result = text;
-  
-  const sortedWords = [...words].sort((a, b) => b.length - a.length);
+/**
+ * Highlights domain terms and intent keywords with glowing mark tags
+ */
 
-  sortedWords.forEach(w => {
-    if (w.length < 3) return;
-    const regex = new RegExp(`(${w})`, 'gi');
+export function highlightKeywords(text, domainTerms = [], matchedIntents = []) {
+  if (!text) return '';
+  let result = text;
+
+  const termsToHighlight = new Set([...domainTerms]);
+
+  matchedIntents.forEach(intent => {
+    intent.passageKeywords.forEach(kw => termsToHighlight.add(kw.toLowerCase()));
+  });
+
+  const sortedTerms = Array.from(termsToHighlight)
+    .filter(t => t.length >= 3 && !DOMAIN_STOPWORDS.has(t))
+    .sort((a, b) => b.length - a.length);
+
+  sortedTerms.forEach(w => {
+    // Escape special regex chars
+    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
     result = result.replace(regex, '___MARK_START___$1___MARK_END___');
   });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Sparkles, ExternalLink, HelpCircle, ArrowRight } from 'lucide-react';
+import { Search, Sparkles, ExternalLink, HelpCircle, ArrowRight, Tag, AlertCircle } from 'lucide-react';
 import { queryAGORules } from '../services/rulesEngine';
 
 export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier, onSelectTier }) {
@@ -42,7 +42,7 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask any rules question (e.g., 'What happens if a fencer turns their back?', 'Can I pommel strike?', 'gloves')..."
+            placeholder="Ask any rules question (e.g. 'Can I pommel strike the mask?', 'What if someone turns their back?')..."
             style={{
               width: '100%',
               padding: '0.75rem 1rem 0.75rem 2.5rem',
@@ -113,11 +113,23 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
             searchResult.passages.map((item, idx) => (
               <div key={idx} className="glass-panel gold-border animate-fade-in" style={{ padding: '1.25rem' }}>
                 
-                {/* Header: Ruleset Name & Official Permalink */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-muted)' }}>
-                  <span style={{ fontWeight: '800', color: 'var(--text-gold)', fontSize: '0.95rem' }}>
-                    {item.rulesetName} (r={item.rulesetId})
-                  </span>
+                {/* Header: Ruleset Name, Section Heading & Official Permalink */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.6rem', marginBottom: '0.75rem', paddingBottom: '0.55rem', borderBottom: '1px solid var(--border-muted)' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                      <span className="badge badge-gold" style={{ fontSize: '0.75rem' }}>
+                        {item.rulesetName} (r={item.rulesetId})
+                      </span>
+                      <span className="badge badge-blue" style={{ fontSize: '0.75rem' }}>
+                        Section: {item.heading}
+                      </span>
+                    </div>
+                    {item.matchReason && (
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-gold)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Tag size={12} /> {item.matchReason}
+                      </span>
+                    )}
+                  </div>
                   
                   <a
                     href={item.permalink}
@@ -141,9 +153,13 @@ export default function RulesQA({ selectedRuleset, onSelectRuleset, selectedTier
               </div>
             ))
           ) : (
-            <div className="glass-panel" style={{ padding: '1.25rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              <p style={{ fontSize: '0.9rem', margin: 0 }}>
-                No specific rules passage matched your exact terms. Try adjusting your query or check the full rulebooks under the "Official Rules" tab.
+            <div className="glass-panel" style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+                <AlertCircle size={28} color="var(--accent-gold)" />
+              </div>
+              <h3 style={{ color: '#fff', fontSize: '1rem', marginBottom: '0.4rem' }}>No Strong Rule Match Found</h3>
+              <p style={{ fontSize: '0.875rem', margin: 0, color: 'var(--text-steel)' }}>
+                No official rule passages matched your query with sufficient confidence. Try phrasing your question with specific terms (e.g. "pommel", "turns back", "gloves", "double hit", "afterblow", "step out").
               </p>
             </div>
           )}
